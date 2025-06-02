@@ -1,5 +1,6 @@
 using Qr_API.Requests;
 using Qr_API.Results;
+using Qr_API.Services;
 
 namespace Qr_API.Factories;
 
@@ -21,11 +22,13 @@ public class QrStrategyFactory : IQrStrategyFactory
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<QrStrategyFactory> _logger;
+    private readonly IQrGenerationService _qrService;
 
-    public QrStrategyFactory(IServiceProvider serviceProvider, ILogger<QrStrategyFactory> logger)
+    public QrStrategyFactory(IServiceProvider serviceProvider, ILogger<QrStrategyFactory> logger, IQrGenerationService qrService)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _qrService = qrService;
     }
 
     public IQrStrategy CreateStrategy(QrStrategyType type)
@@ -34,10 +37,10 @@ public class QrStrategyFactory : IQrStrategyFactory
         
         return type switch
         {
-            QrStrategyType.Default => new DefaultQrStrategy(),
-            QrStrategyType.Advanced => new AdvancedQrStrategy(),
-            QrStrategyType.Mobile => new MobileQrStrategy(),
-            QrStrategyType.Enterprise => new EnterpriseQrStrategy(_serviceProvider.GetService<ILogger<EnterpriseQrStrategy>>()),
+            QrStrategyType.Default => new DefaultQrStrategy(_qrService, _serviceProvider.GetService<ILogger<DefaultQrStrategy>>()),
+            QrStrategyType.Advanced => new AdvancedQrStrategy(_qrService, _serviceProvider.GetService<ILogger<AdvancedQrStrategy>>()),
+            QrStrategyType.Mobile => new MobileQrStrategy(_qrService, _serviceProvider.GetService<ILogger<MobileQrStrategy>>()),
+            QrStrategyType.Enterprise => new EnterpriseQrStrategy(_qrService, _serviceProvider.GetService<ILogger<EnterpriseQrStrategy>>()),
             _ => throw new ArgumentException($"Unknown strategy type: {type}")
         };
     }

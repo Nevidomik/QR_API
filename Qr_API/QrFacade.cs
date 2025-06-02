@@ -9,6 +9,7 @@ public interface IQrFacade
 {
     Task<QrResult> ProcessQr(QrRequest request);
     Task<QrCode> GetQrById(int id);
+    Task<byte[]> GetQrImageById(int id);
     void Subscribe(IQrProcessingObserver observer);
     void Unsubscribe(IQrProcessingObserver observer);
 }
@@ -44,9 +45,23 @@ public class QrFacade : IQrFacade
         try
         {
             await NotifyObservers(o => o.OnQrProcessingStarted(request));
+            
             var result = _strategy.Process(request);
-            _db.QrCodes.Add(new QrCode { Data = request.Data, Processed = result.Success });
+            
+            // Зберігаємо в базу з додатковими даними
+            var qrCode = new QrCode 
+            { 
+                Data = request.Data, 
+                Processed = result.Success,
+                QrImageBase64 = result.QrImageBase64,
+                ErrorMessage = result.ErrorMessage,
+                StrategyUsed = result.StrategyUsed,
+                CreatedAt = DateTime.UtcNow
+            };
+            
+            _db.QrCodes.Add(qrCode);
             await _db.SaveChangesAsync();
+            
             await NotifyObservers(o => o.OnQrProcessingCompleted(request, result));
             return result;
         }
@@ -60,6 +75,15 @@ public class QrFacade : IQrFacade
     public async Task<QrCode> GetQrById(int id)
     {
         return await _db.QrCodes.FindAsync(id);
+    }
+
+    public async Task<byte[]> GetQrImageById(int id)
+    {
+        var qrCode = await _db.QrCodes.FindAsync(id);
+        if (qrCode?.QrImageBase64 == null)
+            return null;
+
+        return Convert.FromBase64String(qrCode.QrImageBase64);
     }
 
     private async Task NotifyObservers(Func<IQrProcessingObserver, Task> action)
